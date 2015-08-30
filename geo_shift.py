@@ -14,8 +14,12 @@ shifter. shift and clean.
 
 '''
 from Bio import SeqIO
+#import os
+#os.chdir("genome_shift")
+
 
 def roundtrip_check(filepath):
+    __doc__ = '''Is there any odd data in the genbank that will get lost? Bar for the know things addressed with Botch()'''
     import os
     input_handle = open("TMO.gbk", "rU")
     SeqIO.convert(filepath, "genbank", "test.gbk", "genbank")
@@ -24,41 +28,22 @@ def roundtrip_check(filepath):
 
 
 def contig_check():
-    __doc__ = '''
-Contig0003 9256
-    genes: 4569
-Contig0001 227
-    genes: 113
-Contig0002 119
-    genes: 59
-total genes: 4741
-while http://www.ncbi.nlm.nih.gov/genome/2405 says:
-Type	Name	RefSeq	INSDC	Size (Mb)	GC%	Protein	rRNA	tRNA	Other RNA	Gene	Pseudogene
-Chr	-	NC_015660.1	CP002835.1	3.89	44.0	3,630	27	90	1	3,895	118
-Plsm	pGEOTH01	NC_015665.1	CP002836.1	0.080849	44.0	67	-	-	-	77	6
-Plsm	pGEOTH02	NC_015661.1	CP002837.1	0.019638	40.4	20	-	-	-	20	-
-Oh. three bits. Doh.
-
-
-So Contig 3 > Chr
-Contig 1 > bigger plasmid
-Contig 2 > smaller plasmid
-'''
+    __doc__ = ''' get the size of the contigs in genes and mbp'''
     from collections import Counter
 
-    os.chdir("genome_shift")
-    input_handle = open("TMO.gbk", "rU")
+    input_handle = open("TMO.embl", "rU")
     x = 0
-    for record in SeqIO.parse(input_handle, "genbank"):
+    for record in SeqIO.parse(input_handle, "embl"):
         print(record.id + " " + str(len(record.features)))
         tally = Counter([gene.type for gene in record.features])
-        x += tally['gene']
-        print("    genes: " + str(tally['gene']))
+        x += tally['CDS']
+        print("    genes: " + str(tally['CDS']))
     print("total genes: " + str(x))
     input_handle.close()
 
 
 def ori_check(filepath):
+    __doc__ = '''Let's find the origin. It will call xGC_skew_mod'''
     # from Bio.SeqUtils import xGC_skew
     input_handle = open(filepath, "rU")
     from itertools import tee
@@ -82,8 +67,8 @@ def ori_check(filepath):
 
 
 def xGC_skew_mod(name, seq, outpath, window=None, zoom=100, r=300, px=100, py=100):
-    """Calculates and plots normal and accumulated GC skew (GRAPHICS !!!)."""
-    # Copy of from Bio.SeqUtils import xGC_skew. to make it print
+    __doc__="""Copy of from Bio.SeqUtils import xGC_skew. to make it print"""
+    #
     if not window:
         window = round(len(seq) / 720)
     from Bio.SeqUtils import GC, GC_skew
@@ -152,11 +137,7 @@ def xGC_skew_mod(name, seq, outpath, window=None, zoom=100, r=300, px=100, py=10
 
 
 def sequentiality_check(filepath):
-    __doc__ = '''ERROR: ['RTMO01197'] [12893:13148](+) comes after ['RTMO01196'] [12658:12919](+)offset: -26
-ERROR: ['RTMO01188'] [23286:24321](+) comes after ['RTMO01185'] [21436:23290](+)offset: -4
-ERROR: ['RTMO01189'] [24317:24866](+) comes after ['RTMO01188'] [23286:24321](+)offset: -4
-ERROR: ['RTMO01175'] [30384:31023](+) comes after ['RTMO01174'] [30205:30388](+)offset: -4
-ERROR: ['RTMO01176'] [31250:32321](+) comes after ['RTMO05742'] [31102:31282](+)offset: -32'''
+    __doc__ = '''Are the gene numbers sequencial?'''
 
     # from Bio.SeqUtils import xGC_skew
     input_handle = open(filepath, "rU")
@@ -193,7 +174,8 @@ ERROR: ['RTMO01176'] [31250:32321](+) comes after ['RTMO05742'] [31102:31282](+)
 
 
 def shifter(filepath, outpath, affix):
-    bug = "Geobacillus thermoglucosidasius NCIMB 11955"
+    __doc__='''Actual fixer module'''
+    bug = "Geobacillus thermoglucosidasius TM242"
 
     genome = list(SeqIO.parse(open(filepath, "rU"), "genbank"))
     x = 1
@@ -216,6 +198,7 @@ def shifter(filepath, outpath, affix):
         for gene in chr.features:
             if gene.type == "source":
                 gene.qualifiers['strain'] = "NCIMB 11955 (KP 1006 = R-35637 = ATCC 43742 = BGSC 95A1 = CCUG 28887 = CIP 106930 = DSM 2542 = LMG 7137 = NCIMB 11955 = NRRL B-14516)"
+                gene.qualifiers['sub_strain']="TM242"
                 gene.qualifiers['organism'] = "Geobacillus thermoglucosidasius"
                 gene.qualifiers['mol_type']="genomic DNA"
                 gene.qualifiers['db_xref']="taxon:1426"
@@ -240,8 +223,68 @@ def shifter(filepath, outpath, affix):
 
     SeqIO.write(genome, open(outpath, "w"), "genbank")
 
+def shifter_mod(filepath, outpath, affix):
+
+    __doc__='''Mod of the above to deal with EMBL file that has a lot more interesting tags, but has different issues'''
+    bug = "Geobacillus thermoglucosidasius TM242"
+
+    temp = list(SeqIO.parse(open(filepath, "rU"), "embl"))
+    genome=[temp[2],temp[0],temp[1]]
+    x = 1
+    element = 0
+    genome[0].features[0].qualifiers['chromosome']="primary"
+    genome[1].features[0].qualifiers['plasmid']="p"+affix+"1"
+    genome[2].features[0].qualifiers['plasmid']="p"+affix+"2"
+    for chr in genome:
+        chr.name = ["Chromosome", "p"+affix+"1", "p"+affix+"2"][element]
+        chr.id = "NC_xxxxxx"
+        chr.description = \
+        [bug + " complete " + z for z in ["chromosome", "large plasmid (of two)", "small plasmid (of two)"]][element]
+        chr.annotations['references'] = []
+        chr.annotations['source'] = bug
+        chr.annotations['organism'] = bug
+        chr.annotations['taxonomy'] = ['Bacteria', 'Firmicutes', 'Bacilli', 'Bacillales', 'Bacillaceae', 'Geobacillus']
+        chr.annotations['sequence_version'] = "v.2"
+        element += 1
+    for chr in genome:
+        for gene in chr.features:
+            if gene.type == "source":
+                gene.qualifiers['strain'] = "NCIMB 11955 (KP 1006 = R-35637 = ATCC 43742 = BGSC 95A1 = CCUG 28887 = CIP 106930 = DSM 2542 = LMG 7137 = NCIMB 11955 = NRRL B-14516)"
+                gene.qualifiers['sub_strain']="TM242"
+                gene.qualifiers['organism'] = "Geobacillus thermoglucosidasius"
+                gene.qualifiers['mol_type']="genomic DNA"
+                gene.qualifiers['db_xref']="taxon:1426"
+                gene.qualifiers['sub_clone']="laboratory collection of Leak, DJ, University of Bath"
+            elif gene.type == "tRNA" or gene.type == "rRNA":
+                new = "Gtg" + "{:0>5d}".format(x)
+                gene.qualifiers['locus_tag'] = [new]
+                x += 1
+            elif gene.type == "gene":
+                raise Exception
+            elif gene.type == "CDS":
+                new = affix + "{:0>5d}".format(x)
+                locus=gene.qualifiers['db_xref'][0].replace("ERGO:","")
+                gene.qualifiers['db_xref'].pop(0)
+                if not gene.qualifiers['db_xref']:
+                    del(gene.qualifiers['db_xref'])
+                gene.qualifiers['old_locus_tag'] = [locus]
+                gene.qualifiers['locus_tag'] = [new]
+                gene.qualifiers['protein_id'] = ["NP_xxxxxx"]
+                if 'product' not in gene.qualifiers:
+                    if 'note' in gene.qualifiers:
+                        gene.qualifiers['product']=[gene.qualifiers['note'][0]]
+                    else:
+                        gene.qualifiers['product']=['Hypothetical protein']
+
+                x += 1
+            else:
+                print("UNKNOWN FEATURE TYPE: " + str(gene.type))
+
+    SeqIO.write(genome, open(outpath, "w"), "genbank")
+
 
 def botch(filepath, v):
+    __doc__='''Save to genbank has two known glitches'''
     f = open(filepath, "rU")
     txt = f.read()
     txt=txt.replace("VERSION     NC_xxxxxx", "VERSION     " + str(v)).replace("DNA              ", "DNA     circular ")
@@ -249,6 +292,7 @@ def botch(filepath, v):
     open(filepath, "w").write(txt)
 
 def fastidiate(filepath): #How punderful! I am fastidious about the fasta header.
+    __doc__='''Get list of protein as fasta.'''
     N="\n"
     T="\t"
     protball=[]
@@ -257,9 +301,10 @@ def fastidiate(filepath): #How punderful! I am fastidious about the fasta header
         #Nice that there is a translation qualifier
     open(filepath.replace(".gbk",".fasta").replace(".gb",".fasta").replace(".gen",".fasta"),"w").write(N.join(protball)+N)
     #Feck. Python, I hate your backwards join (and your lack of autoincrementor and conditional assignment).
-    #Annoyme again and I will switch to whitespace
+    #Annoy me again and I will switch to whitespace
 
 def pfaming(filepath, pfilepath, outpath):
+    __doc__='''A protein list was submitted to pfam and this unifies the resolts into the genbank'''
     N="\n"
     T="\t"
     #print([line.split() for line in open(pfilepath,"r").readlines()][1])
@@ -297,10 +342,10 @@ def pfaming(filepath, pfilepath, outpath):
                     print("no "+locus)
     SeqIO.write(genome, open(outpath, "w"), "genbank")
 
-def more_tweaks():
-    pass
+
 
 def nominate(filepath,outpath):
+    __doc__='''Get names of genes.'''
     N="\n"
     T="\t"
     nameball=[gene.qualifiers["locus_tag"][0]+T+gene.qualifiers['product'][0] for chr in SeqIO.parse(filepath,"genbank") for gene in chr.features if gene.type=="CDS"]
@@ -309,6 +354,7 @@ def nominate(filepath,outpath):
 
 
 def length_table(filepath):
+    __doc__='''Make a table of lengths'''
     #copy paste from sequentiality
     space=[]
     genome = list(SeqIO.parse(open(filepath, "rU"), "genbank"))
@@ -321,22 +367,31 @@ def length_table(filepath):
     print(len(genome[0]))
     return space
 
+def match():
+    __doc__='''I downloaded the assoc SQL http://archive.geneontology.org/latest-lite/
+copied the gene_product.txt
+geo_shift.nominate made the list of names.
+This is the most weirdest way of doing things, but with only a name there is not much wiggle room, short of re-annotating the genome.
+'''
+    go_fp="gene_product.txt"
+    name_fp="name_list 2.2.txt"
+    import csv
+    goball=list(csv.reader(open(go_fp), dialect='excel-tab'))
+    namelist=[x[5] for x in goball]
+    nameball=[]
+    for entry in csv.reader(open(name_fp,"r"), delimiter="\t"):
+        matched=[i for i,v in enumerate(namelist) if v==entry[1]]
+        if len(matched) ==1:
+            print("Perfect: "+entry[0]+" "+entry[1])
+            nameball.append([entry[0],entry[1],"perfect",goball[matched[0]]])
+        elif len(matched) >1:
+            print("Imperfect: "+entry[0]+" "+entry[1]+" with matches: "+str(len(matched)))
+            nameball.append([entry[0],entry[1],"broad:"+str(len(matched)),goball[matched[0]]])
+        else:
+            print("Unknown: "+entry[0]+" "+entry[1])
+            nameball.append([entry[0],entry[1],"Unknown",entry[1]])
+    csv.writer(open("out_namematch.csv","w")).writerows(nameball)
+
 
 if __name__ == "__main__":
-    ref = "Eco NC_000913.gb"
-    geo = "TMO.gbk"
-    fp = geo
-    # sequentiality_check(fp)
-    #precheck(fp)
-    nfp="Gth_NCIMB_11955_v2.3.gb"
-    #shifter(fp, nfp,"Gthg")
-    #botch(nfp,2.2)
-    #fastidiate(nfp)
-    #nominate(nfp,"name_list 2.2.txt")
-    geo="Gth_NCIMB_11955_v2.4.gb"
-    #pfaming(nfp, "pfam2.2.txt",n2fp)
-
-    #Eco NC_000913
-    sequentiality_check(geo)
-    import csv
-   # csv.writer(open("Geo_out.txt","w")).writerows([['locus', 'start','end']]+length_table(geo))
+    pass
