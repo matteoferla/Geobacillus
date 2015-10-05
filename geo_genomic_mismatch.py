@@ -73,7 +73,6 @@ def get_diff():
 
 def get_prot():
     __doc__='''Parse the blast results of prot vs. prot and give a table '''
-    genome = get_genome("Gthg_TM242_v3.0.gb")
 
     def picker(rec):
         if rec.alignments:
