@@ -1,9 +1,9 @@
 # Scripts for Geobacillus project
 
-##Strangers
+## Strangers
 Some scripts and stuff for personal use. If you need to copy a function. Go ahead.
 
-#Pipedreams of features missing in BioPython
+### Pipedreams of features missing in BioPython
 BioPython is a tad lacking in some areas. It is great, but sometimes stuff needs to be done.
 Such as editing sequences, MutSeq isn't the friendliest.
 Off by one error and all the rest.
@@ -15,7 +15,7 @@ Biopython is after so much better than BioPerl.
 
 In here there are also KEGG and SBML manipulation scripts.
 
-##David's lab group
+## David's lab group
 If you were told there is a link in an email somewhere, but nobody can find it, it is okay here are two links for you:
 
 * [Here is a copy of the protocol sheet for RNASeq analysis](http://rawgit.com/matteoferla/Geobacillus/master/protocol.html).
